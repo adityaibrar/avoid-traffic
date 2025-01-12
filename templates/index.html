@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Route Planner - Avoid Traffic</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA_0W5bZ8R4rsWwrFLlIxykVaWOrU6N4rQ&callback=initMap" defer></script>
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+            margin-top: 20px;
+        }
+        body {
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Route Planner - Avoid Traffic</h1>
+        <form id="routeForm" class="row g-3 mt-4">
+            <div class="col-md-6">
+                <label for="start" class="form-label">Start Location:</label>
+                <select id="start" name="start" class="form-select" required>
+                    <option value="pasar">Pasar</option>
+                    <option value="mts_2">MTS 2</option>
+                    <option value="SD">SD Dabasah</option>
+                    <option value="SMP_1">SMPN 1 Bondowoso</option>
+                    <option value="SDK">SDK</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label for="end" class="form-label">End Location:</label>
+                <select id="end" name="end" class="form-select" required>
+                    <option value="pasar">Pasar</option>
+                    <option value="mts_2">MTS 2</option>
+                    <option value="SD">SD Dabasah</option>
+                    <option value="SMP_1">SMPN 1 Bondowoso</option>
+                    <option value="SDK">SDK</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label for="transportMode" class="form-label">Transport Mode:</label>
+                <select id="transportMode" name="transportMode" class="form-select" required>
+                    <option value="DRIVING">Car</option>
+                    <option value="TWO_WHEELER">Motorcycle</option>
+                </select>
+            </div>
+            <div class="col-md-6 d-flex align-items-center">
+                <div class="form-check">
+                    <input type="checkbox" id="avoidTraffic" class="form-check-input">
+                    <label for="avoidTraffic" class="form-check-label">Avoid Traffic</label>
+                </div>
+            </div>
+            <div class="col-12 text-center">
+                <button type="button" class="btn btn-primary" onclick="calculateRoute()">Find Route</button>
+            </div>
+        </form>
+        <div id="map" class="mt-4"></div>
+    </div>
+
+    <!-- <div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="videoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="videoModalLabel">Live Traffic Video</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <video id="trafficVideo" controls autoplay muted style="width: 100%; height: auto;">
+                        <source id="videoSource" src="{{url_for('video_feed')}}" >
+                        Your browser does not support the video tag.
+                    </video>
+                    <img src="{{url_for('video_feed')}}" alt="..." id="trafficVideo">
+                </div>
+            </div>
+        </div>
+    </div> -->
+
+    <!-- ini dari kamera -->
+
+    <!-- <div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="videoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="videoModalLabel">Live Traffic Video</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <img id="trafficVideo" src="/video_feed" alt="Traffic Video" style="width: 100%; height: auto;" />
+                </div>
+            </div>
+        </div>
+    </div> -->
+
+    <!-- ini dari streaming blob -->
+
+    <div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="videoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="videoModalLabel">Live Traffic Video</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <video id="trafficVideo" controls autoplay muted style="width: 100%; height: auto;">
+                        <!-- Video source dimuat oleh JavaScript -->
+                    </video>
+                </div>
+            </div>
+        </div>
+    </div>    
+    
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+    
+
+    <script>
+       let map, directionsService, directionsRenderer, trafficLayer, waypointsMarkers = [];
+
+// Data koordinat lokasi
+const locations = {
+    "pasar": { lat: -7.915016, lng: 113.827289 },
+    "mts_2": { lat: -7.915497, lng: 113.816206 },
+    "SD": { lat: -7.913832, lng: 113.820898 },
+    "SMP_1": { lat: -7.912070, lng: 113.822498 },
+    "SDK": { lat: -7.917106, lng: 113.822214 }
+};
+
+// Initialize the map
+function initMap() {
+    map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: -7.915016, lng: 113.827289 }, // Default location
+        zoom: 14,
+    });
+
+    directionsService = new google.maps.DirectionsService();
+    directionsRenderer = new google.maps.DirectionsRenderer({
+        map: map,
+    });
+}
+
+// Clear existing markers
+function clearWaypointsMarkers() {
+    waypointsMarkers.forEach(marker => marker.setMap(null));
+    waypointsMarkers = [];
+}
+
+// Add markers for waypoints
+function addWaypointMarker(location, text) {
+    const marker = new google.maps.Marker({
+        position: location,
+        map: map,
+    });
+
+    // Add click listener to show modal
+    marker.addListener("click", () => {
+        loadVideo()
+        //const modalText = document.getElementById("modalText");
+        //modalText.innerText = text;
+        // const modal = new bootstrap.Modal(document.getElementById("infoModal"));
+        // modal.show();
+    });
+
+    waypointsMarkers.push(marker);
+}
+
+// ini dari kamera
+// function loadVideo(){
+//     // document.getElementById("videoSource").src = "/video_feed";
+//     // document.getElementById("trafficVideo").load();
+//     const videoElement = document.getElementById("trafficVideo");
+//     videoElement.src = "/video_feed"; // Set source ke endpoint Flask
+// }
+
+//ini dari streaming blob
+function loadVideo() {
+    const video = document.getElementById("trafficVideo");
+    const videoSource = "https://extstream.hk-opt2.com/LiveApp/streams/710404214066673275657182.m3u8";
+
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = videoSource;
+    } else if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(videoSource);
+        hls.attachMedia(video);
+    } else {
+        alert("Browser Anda tidak mendukung HLS.");
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById("infoModal"));
+    modal.show();
+}
+
+document.getElementById("infoModal").addEventListener("hidden.bs.modal", () => {
+    const video = document.getElementById("trafficVideo");
+
+    // Hentikan video dan reset
+    if (video) {
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+    }
+
+    // Bersihkan backdrop jika tertinggal
+    const backdrops = document.querySelectorAll(".modal-backdrop");
+    backdrops.forEach(backdrop => backdrop.remove());
+
+    // Pastikan scroll aktif kembali
+    document.body.classList.remove("modal-open");
+    document.body.style.overflow = "";
+});
+
+// Calculate the route
+function calculateRoute() {
+    const startKey = document.getElementById("start").value;
+    const endKey = document.getElementById("end").value;
+    const transportMode = document.getElementById("transportMode").value;
+    const avoidTraffic = document.getElementById("avoidTraffic").checked;
+
+    if (!startKey || !endKey) {
+        alert("Please select both start and end locations.");
+        return;
+    }
+
+    const startLocation = locations[startKey];
+    const endLocation = locations[endKey];
+
+    // Clear existing markers
+    clearWaypointsMarkers();
+
+    // Avoid jalan tertentu (contoh: Jl. Sutomo)
+    const waypoints = [];
+    if (startKey === "pasar" && endKey === "mts_2" && avoidTraffic) {
+        const waypoint1 = { lat: -7.914000, lng: 113.820000 }; // Jalan alternatif/kasih koordinat jalan alternatif
+        waypoints.push({ location: waypoint1, stopover: false });
+        const avoidPoints = { lat: -7.916301, lng: 113.818341}; // Koordinat marker
+        addWaypointMarker(avoidPoints, "Alternatif: Hindari macet di Jalan Sutomo");
+    }
+    if (startKey === "pasar" && endKey === "SMP_1" && avoidTraffic) {
+        const waypoint2 = { lat: -7.915000, lng: 113.820000 }; // Jalan alternatif/kasih koordinat jalan alternatif
+        waypoints.push({ location: waypoint2, stopover: false }); 
+        const avoidPoints = {lat :-7.913432, lng :113.823489};// Koordinat marker
+        addWaypointMarker(avoidPoints, "Alternatif: Hindari macet menuju SMP 1");
+    }
+
+    const request = {
+        origin: startLocation,
+        destination: endLocation,
+        travelMode: transportMode === "TWO_WHEELER" ? google.maps.TravelMode.DRIVING : google.maps.TravelMode.DRIVING,
+        waypoints: waypoints,
+        avoidTolls: avoidTraffic, // Hindari tol jika macet
+        provideRouteAlternatives: true, // Menampilkan rute alternatif
+    };
+
+    directionsService.route(request, (result, status) => {
+        if (status === google.maps.DirectionsStatus.OK) {
+            directionsRenderer.setDirections(result);
+        } else {
+            alert("Could not calculate route: " + status);
+        }
+    });
+}
+
+    </script>
+</body>
+</html>
