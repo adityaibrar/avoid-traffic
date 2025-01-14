@@ -6,11 +6,11 @@ app = Flask(__name__)
 CORS(app)  # Mengizinkan akses dari domain lain
 
 locations = {
-    "pasar": {"name": "Pasar", "lat": -7.915016, "lng": 113.827289},
-    "mts_2": {"name": "MTS 2", "lat": -7.915497, "lng": 113.816206},
-    "SD": {"name": "SD Dabasah", "lat": -7.913832, "lng": 113.820898},
-    "SMP_1": {"name": "SMPN 1 Bondowoso", "lat": -7.912070, "lng": 113.822498},
-    "SDK": {"name": "SDK", "lat": -7.917106, "lng": 113.822214},
+    "pasar": {"name": "Pasar", "lat": -7.915016, "lng": 113.827289, "videoSource": "https://video.pasar.com/stream"},
+    "mts_2": {"name": "MTS 2", "lat": -7.915497, "lng": 113.816206, "videoSource": "https://video.mts2.com/stream"},
+    "SD": {"name": "SD Dabasah", "lat": -7.913832, "lng": 113.820898, "videoSource": "https://video.sd.com/stream"},
+    "SMP_1": {"name": "SMPN 1 Bondowoso", "lat": -7.912070, "lng": 113.822498, "videoSource": "https://video.smp1.com/stream"},
+    "SDK": {"name": "SDK", "lat": -7.917106, "lng": 113.822214, "videoSource": "https://video.sdk.com/stream"},
 }
 
 def video_stream():
@@ -52,16 +52,16 @@ def calculate_route():
     start_location = locations[start]
     end_location = locations[end]
 
-    if(start_location == end_location):
-        return
+    if start_location == end_location:
+        return jsonify({"error": "Start and end locations cannot be the same"}), 400
 
     # Tentukan waypoints berdasarkan kondisi
     waypoints = []
     if start == "pasar" and end == "mts_2" and avoid_traffic:
-        waypoint1 = {"lat": -7.914000, "lng": 113.820000}
+        waypoint1 = {"lat": -7.914000, "lng": 113.820000, "videoSource": "https://extstream.hk-opt2.com/LiveApp/streams/710404214066673275657182.m3u8"}
         waypoints.append(waypoint1)
     elif start == "pasar" and end == "SMP_1" and avoid_traffic:
-        waypoint2 = {"lat": -7.915000, "lng": 113.820000}
+        waypoint2 = {"lat": -7.915000, "lng": 113.820000, "videoSource": "https://camera.jtd.co.id/camera/share/tios/2/78/index.m3u8"}
         waypoints.append(waypoint2)
 
     # Return rute dan waypoints

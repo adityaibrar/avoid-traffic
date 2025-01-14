@@ -105,10 +105,7 @@
         </div>
     </div>
 
-
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-
-
 
     <script>
         let map, directionsService, directionsRenderer, trafficLayer, waypointsMarkers = [];
@@ -135,7 +132,7 @@
         }
 
         // Add markers for waypoints
-        function addWaypointMarker(location, text) {
+        function addWaypointMarker(location, text, videoSource) {
             const marker = new google.maps.Marker({
                 position: location,
                 map: map,
@@ -143,7 +140,7 @@
 
             // Add click listener to show modal
             marker.addListener("click", () => {
-                loadVideo()
+                loadVideo(videoSource)
                 //const modalText = document.getElementById("modalText");
                 //modalText.innerText = text;
                 // const modal = new bootstrap.Modal(document.getElementById("infoModal"));
@@ -162,9 +159,26 @@
         // }
 
         //ini dari streaming blob
-        function loadVideo() {
+        // function loadVideo() {
+        //     const video = document.getElementById("trafficVideo");
+        //     const videoSource = "https://extstream.hk-opt2.com/LiveApp/streams/710404214066673275657182.m3u8";
+
+        //     if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        //         video.src = videoSource;
+        //     } else if (Hls.isSupported()) {
+        //         const hls = new Hls();
+        //         hls.loadSource(videoSource);
+        //         hls.attachMedia(video);
+        //     } else {
+        //         alert("Browser Anda tidak mendukung HLS.");
+        //     }
+
+        //     const modal = new bootstrap.Modal(document.getElementById("infoModal"));
+        //     modal.show();
+        // }
+
+        function loadVideo(videoSource) {
             const video = document.getElementById("trafficVideo");
-            const videoSource = "https://extstream.hk-opt2.com/LiveApp/streams/710404214066673275657182.m3u8";
 
             if (video.canPlayType("application/vnd.apple.mpegurl")) {
                 video.src = videoSource;
@@ -253,7 +267,7 @@
 
                     // Add markers for waypoints
                     routeData.waypoints.forEach(wp => {
-                        addWaypointMarker({ lat: wp.lat, lng: wp.lng });
+                        addWaypointMarker({ lat: wp.lat, lng: wp.lng, }, "Waypoint", wp.videoSource);
                     });
                 } else {
                     alert("Could not calculate route: " + status);
