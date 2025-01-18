@@ -1,9 +1,12 @@
+from ultralytics import YOLO
 import cv2
 from flask import Flask, render_template,request, Response, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)  # Mengizinkan akses dari domain lain
+
+model = YOLO("yolov8n.pt")
 
 locations = {
     "pasar": {"name": "Pasar", "lat": -7.915016, "lng": 113.827289, "videoSource": "https://video.pasar.com/stream"},
@@ -13,11 +16,7 @@ locations = {
     "SDK": {"name": "SDK", "lat": -7.917106, "lng": 113.822214, "videoSource": "https://video.sdk.com/stream"},
 }
 
-def video_stream():
-    # URL streaming HLS
-    video_url = "https://camera.jtd.co.id/camera/share/tios/2/78/index.m3u8"
-    video_yt="https://youtu.be/PFu3b_sFIak"
-    # Membuka streaming video
+def video_stream(video_url):
     cap = cv2.VideoCapture(video_url)
     if not cap.isOpened():
         print("Error: Tidak dapat membuka video stream.")
@@ -26,14 +25,27 @@ def video_stream():
     while True:
         ret, frame = cap.read()
         if not ret:
-            print("Stream selesai atau terputus.")
             break
+
+        # Deteksi objek dengan YOLO
+        results = model(frame)
+
+        # Gambar bounding box hasil deteksi
+        for result in results:
+            for box in result.boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                label = result.names[int(box.cls[0])]
+                confidence = float(box.conf[0])
+
+                # Gambar kotak deteksi
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(frame, f"{label} {confidence:.2f}", (x1, y1 - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
         # Encode frame ke format JPEG
         _, buffer = cv2.imencode('.jpg', frame)
         frame = buffer.tobytes()
 
-        # Kirim frame ke browser
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
@@ -61,7 +73,7 @@ def calculate_route():
         waypoint1 = {"lat": -7.914000, "lng": 113.820000, "videoSource": "https://extstream.hk-opt2.com/LiveApp/streams/710404214066673275657182.m3u8"}
         waypoints.append(waypoint1)
     elif start == "pasar" and end == "SMP_1" and avoid_traffic:
-        waypoint2 = {"lat": -7.915000, "lng": 113.820000, "videoSource": "https://camera.jtd.co.id/camera/share/tios/2/78/index.m3u8"}
+        waypoint2 = {"lat": -7.915000, "lng": 113.820000, "videoSource": "https://extstream.hk-opt2.com/LiveApp/streams/956464037412277558025165.m3u8"}
         waypoints.append(waypoint2)
 
     # Return rute dan waypoints
@@ -78,7 +90,11 @@ def index():
 
 @app.route("/video_feed")
 def video_feed():
-    return Response(video_stream(), mimetype="multipart/x-mixed-replace; boundary=frame")
+    video_url = request.args.get("video_url")
+    if not video_url:
+        return "Error: URL tidak diberikan", 400
+
+    return Response(video_stream(video_url), mimetype="multipart/x-mixed-replace; boundary=frame")
 
 def main():
     app.run(debug=True)  # Jalankan server Flask

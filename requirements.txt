@@ -1,0 +1,13 @@
+python3 -m venv <dir-project>
+
+source myenv/bin/activate
+
+which pip
+
+pip install flask
+
+pip install flask_cors
+
+pip install opencv-python
+
+ppip install ultralytics

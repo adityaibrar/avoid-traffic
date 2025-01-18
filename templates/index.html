@@ -97,8 +97,8 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <video id="trafficVideo" controls autoplay muted style="width: 100%; height: auto;">
-                        <!-- Video source dimuat oleh JavaScript -->
+                    <!-- <video id="trafficVideo" controls autoplay muted style="width: 100%; height: auto;"> -->
+                        <img id="trafficImage" src="" style="width: 100%; height: auto;" />
                     </video>
                 </div>
             </div>
@@ -177,22 +177,38 @@
         //     modal.show();
         // }
 
-        function loadVideo(videoSource) {
-            const video = document.getElementById("trafficVideo");
+    //     function loadVideo(videoSource) {
+    //     const video = document.getElementById("trafficVideo");
 
-            if (video.canPlayType("application/vnd.apple.mpegurl")) {
-                video.src = videoSource;
-            } else if (Hls.isSupported()) {
-                const hls = new Hls();
-                hls.loadSource(videoSource);
-                hls.attachMedia(video);
-            } else {
-                alert("Browser Anda tidak mendukung HLS.");
-            }
+    //     // Set the video source dynamically
+    //     const videoUrl = `/video_feed?video_url=${encodeURIComponent(videoSource)}`;
 
-            const modal = new bootstrap.Modal(document.getElementById("infoModal"));
-            modal.show();
-        }
+    //     if (video.canPlayType("application/vnd.apple.mpegurl")) {
+    //         video.src = videoUrl;  // Direct stream from Flask endpoint
+    //     } else if (Hls.isSupported()) {
+    //         const hls = new Hls();
+    //         hls.loadSource(videoUrl);
+    //         hls.attachMedia(video);
+    //     } else {
+    //         alert("Browser Anda tidak mendukung HLS.");
+    //     }
+
+    //     // Show the modal
+    //     const modal = new bootstrap.Modal(document.getElementById("infoModal"));
+    //     modal.show();
+    // }
+
+    function loadVideo(videoSource) {
+    const imageElement = document.getElementById("trafficImage");
+
+    // Set src untuk video feed, akan otomatis menampilkan stream gambar
+    imageElement.src = `/video_feed?video_url=${encodeURIComponent(videoSource)}`;
+
+    // Menampilkan modal
+    const modal = new bootstrap.Modal(document.getElementById("infoModal"));
+    modal.show();
+}
+
 
         document.getElementById("infoModal").addEventListener("hidden.bs.modal", () => {
             const video = document.getElementById("trafficVideo");
