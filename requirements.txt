@@ -1,13 +1,16 @@
-python3 -m venv <dir-project>
+flask
+flask_cors
+opencv-python
+ultralytics
 
-source myenv/bin/activate
+# version
+# ultralytics=8.3.63
+# flask=3.1.0
+# flask_cors=5.0.0
+# opencv-python=4.11.0.86
 
-which pip
+# create setup.sh
+# chmod +x setup.sh
 
-pip install flask
-
-pip install flask_cors
-
-pip install opencv-python
-
-ppip install ultralytics
+# running setup.sh
+# ./setup.sh
