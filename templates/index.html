@@ -6,6 +6,9 @@
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
+    <!-- HLS -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <!-- API_KEY Google Maps -->
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA_0W5bZ8R4rsWwrFLlIxykVaWOrU6N4rQ&callback=initMap"
         defer></script>
     <style>
@@ -53,40 +56,6 @@
         <div id="map" class="mt-4"></div>
     </div>
 
-    <!-- <div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="videoModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="videoModalLabel">Live Traffic Video</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <video id="trafficVideo" controls autoplay muted style="width: 100%; height: auto;">
-                        <source id="videoSource" src="{{url_for('video_feed')}}" >
-                        Your browser does not support the video tag.
-                    </video>
-                    <img src="{{url_for('video_feed')}}" alt="..." id="trafficVideo">
-                </div>
-            </div>
-        </div>
-    </div> -->
-
-    <!-- ini dari kamera -->
-
-    <!-- <div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="videoModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="videoModalLabel">Live Traffic Video</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <img id="trafficVideo" src="/video_feed" alt="Traffic Video" style="width: 100%; height: auto;" />
-                </div>
-            </div>
-        </div>
-    </div> -->
-
     <!-- ini dari streaming blob -->
 
     <div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="videoModalLabel" aria-hidden="true">
@@ -97,15 +66,12 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <!-- <video id="trafficVideo" controls autoplay muted style="width: 100%; height: auto;"> -->
-                        <img id="trafficImage" src="" style="width: 100%; height: auto;" />
+                    <img id="trafficImage" src="" style="width: 100%; height: auto;" />
                     </video>
                 </div>
             </div>
         </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
     <script>
         let map, directionsService, directionsRenderer, trafficLayer, waypointsMarkers = [];
@@ -141,74 +107,21 @@
             // Add click listener to show modal
             marker.addListener("click", () => {
                 loadVideo(videoSource)
-                //const modalText = document.getElementById("modalText");
-                //modalText.innerText = text;
-                // const modal = new bootstrap.Modal(document.getElementById("infoModal"));
-                // modal.show();
             });
 
             waypointsMarkers.push(marker);
         }
 
-        // ini dari kamera
-        // function loadVideo(){
-        //     // document.getElementById("videoSource").src = "/video_feed";
-        //     // document.getElementById("trafficVideo").load();
-        //     const videoElement = document.getElementById("trafficVideo");
-        //     videoElement.src = "/video_feed"; // Set source ke endpoint Flask
-        // }
+        function loadVideo(videoSource) {
+            const imageElement = document.getElementById("trafficImage");
 
-        //ini dari streaming blob
-        // function loadVideo() {
-        //     const video = document.getElementById("trafficVideo");
-        //     const videoSource = "https://extstream.hk-opt2.com/LiveApp/streams/710404214066673275657182.m3u8";
+            // Set src untuk video feed, akan otomatis menampilkan stream gambar
+            imageElement.src = `/video_feed?video_url=${encodeURIComponent(videoSource)}`;
 
-        //     if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        //         video.src = videoSource;
-        //     } else if (Hls.isSupported()) {
-        //         const hls = new Hls();
-        //         hls.loadSource(videoSource);
-        //         hls.attachMedia(video);
-        //     } else {
-        //         alert("Browser Anda tidak mendukung HLS.");
-        //     }
-
-        //     const modal = new bootstrap.Modal(document.getElementById("infoModal"));
-        //     modal.show();
-        // }
-
-    //     function loadVideo(videoSource) {
-    //     const video = document.getElementById("trafficVideo");
-
-    //     // Set the video source dynamically
-    //     const videoUrl = `/video_feed?video_url=${encodeURIComponent(videoSource)}`;
-
-    //     if (video.canPlayType("application/vnd.apple.mpegurl")) {
-    //         video.src = videoUrl;  // Direct stream from Flask endpoint
-    //     } else if (Hls.isSupported()) {
-    //         const hls = new Hls();
-    //         hls.loadSource(videoUrl);
-    //         hls.attachMedia(video);
-    //     } else {
-    //         alert("Browser Anda tidak mendukung HLS.");
-    //     }
-
-    //     // Show the modal
-    //     const modal = new bootstrap.Modal(document.getElementById("infoModal"));
-    //     modal.show();
-    // }
-
-    function loadVideo(videoSource) {
-    const imageElement = document.getElementById("trafficImage");
-
-    // Set src untuk video feed, akan otomatis menampilkan stream gambar
-    imageElement.src = `/video_feed?video_url=${encodeURIComponent(videoSource)}`;
-
-    // Menampilkan modal
-    const modal = new bootstrap.Modal(document.getElementById("infoModal"));
-    modal.show();
-}
-
+            // Menampilkan modal
+            const modal = new bootstrap.Modal(document.getElementById("infoModal"));
+            modal.show();
+        }
 
         document.getElementById("infoModal").addEventListener("hidden.bs.modal", () => {
             const video = document.getElementById("trafficVideo");
@@ -282,7 +195,7 @@
                     directionsRenderer.setDirections(result);
 
                     // Add markers for waypoints
-                    routeData.waypoints.forEach(wp => {
+                    routeData.point_marker.forEach(wp => {
                         addWaypointMarker({ lat: wp.lat, lng: wp.lng, }, "Waypoint", wp.videoSource);
                     });
                 } else {

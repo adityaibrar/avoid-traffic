@@ -68,19 +68,25 @@ def calculate_route():
         return jsonify({"error": "Start and end locations cannot be the same"}), 400
 
     # Tentukan waypoints berdasarkan kondisi
-    waypoints = []
+    waypoints = [] # Jalan alternatif
+    pointMarker = [] # Koordinat Marker 
     if start == "pasar" and end == "mts_2" and avoid_traffic:
         waypoint1 = {"lat": -7.914000, "lng": 113.820000, "videoSource": "https://extstream.hk-opt2.com/LiveApp/streams/710404214066673275657182.m3u8"}
         waypoints.append(waypoint1)
     elif start == "pasar" and end == "SMP_1" and avoid_traffic:
-        waypoint2 = {"lat": -7.915000, "lng": 113.820000, "videoSource": "https://extstream.hk-opt2.com/LiveApp/streams/956464037412277558025165.m3u8"}
+        waypoint2 = {"lat" :-7.915000, "lng" :113.820000}
+        # pointMarker1 = {"lat": -7.913432, "lng": 113.823489, "videoSource": "https://extstream.hk-opt2.com/LiveApp/streams/956464037412277558025165.m3u8"}
+        # pointMarker1 = {"lat": -7.913432, "lng": 113.823489, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/564510132783646943412082.m3u8"}
+        pointMarker1 = {"lat": -7.913432, "lng": 113.823489, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/435572404308262635105603.m3u8"}
         waypoints.append(waypoint2)
+        pointMarker.append(pointMarker1)
 
     # Return rute dan waypoints
     response = {
         "start": start_location,
         "end": end_location,
         "waypoints": waypoints,
+        "point_marker": pointMarker
     }
     return jsonify(response)
 
@@ -97,7 +103,8 @@ def video_feed():
     return Response(video_stream(video_url), mimetype="multipart/x-mixed-replace; boundary=frame")
 
 def main():
-    app.run(debug=True)  # Jalankan server Flask
+    # app.run(host="0.0.0.0", port=5000, debug=True)  # Jalankan server Flask
+    app.run(debug=True) #run web dilokal
 
 if __name__ == "__main__":
     main()
