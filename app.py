@@ -16,6 +16,7 @@ locations = {
     "SDK": {"name": "SDK", "lat": -7.917106, "lng": 113.822214, "videoSource": "https://video.sdk.com/stream"},
 }
 
+
 def video_stream(video_url):
     cap = cv2.VideoCapture(video_url)
     if not cap.isOpened():
@@ -30,12 +31,18 @@ def video_stream(video_url):
         # Deteksi objek dengan YOLO
         results = model(frame)
 
+        # Dictionary untuk menyimpan jumlah objek per label
+        object_counts = {}
+
         # Gambar bounding box hasil deteksi
         for result in results:
             for box in result.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 label = result.names[int(box.cls[0])]
                 confidence = float(box.conf[0])
+
+                # Tambahkan jumlah label
+                object_counts[label] = object_counts.get(label, 0) + 1
 
                 # Gambar kotak deteksi
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
@@ -46,10 +53,38 @@ def video_stream(video_url):
         _, buffer = cv2.imencode('.jpg', frame)
         frame = buffer.tobytes()
 
+        # Menggabungkan JSON (jumlah objek) dan frame
         yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'
+               b'Content-Type: application/json\r\n\r\n' + str(object_counts).encode() + b'\r\n')
 
     cap.release()
+
+@app.route("/object_count")
+def object_count():
+    video_url = request.args.get("video_url")
+    cap = cv2.VideoCapture(video_url)
+    
+    if not cap.isOpened():
+        return jsonify({"error": "Tidak dapat membuka video stream"}), 400
+
+    ret, frame = cap.read()
+    if not ret:
+        return jsonify({"error": "Tidak dapat membaca frame video"}), 400
+
+    # Deteksi objek dengan YOLO
+    results = model(frame)
+    
+    # Hitung jumlah objek per label
+    object_counts = {}
+    for result in results:
+        for box in result.boxes:
+            label = result.names[int(box.cls[0])]
+            object_counts[label] = object_counts.get(label, 0) + 1
+
+    cap.release()
+    
+    return jsonify(object_counts)
 
 @app.route("/calculate_route", methods=["POST"])
 def calculate_route():

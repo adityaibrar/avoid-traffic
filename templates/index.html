@@ -65,10 +65,28 @@
                     <h5 class="modal-title" id="videoModalLabel">Live Traffic Video</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <img id="trafficImage" src="" style="width: 100%; height: auto;" />
-                    </video>
+                <div class="modal-body d-flex flex-column">
+                    <div class="d-flex">
+                        <!-- Gambar video -->
+                        <img id="trafficImage" src="" class="img-fluid" style="width: 70%; height: auto;" />
+                
+                        <!-- Container deteksi objek -->
+                        <div id="objectCount" class="ms-3 p-2 d-flex flex-column justify-content-between"
+                            style="width: 30%; overflow-y: auto; border-left: 1px solid #ddd; height: 100%;">
+                            
+                            <h5 class="text-center">Deteksi Objek</h5>
+                
+                            <!-- List objek -->
+                            <ul id="objectList" class="flex-grow-1" style="list-style: none; padding: 0; margin: 0;"></ul>
+                        </div>
+                    </div>
+                
+                    <!-- Total objek di luar objectCount -->
+                    <div id="totalObjects" class="text-center mt-2 p-2"
+                        style="border-top: 2px solid #ddd; font-weight: bold; background-color: #f8f9fa;">
+                    </div>
                 </div>
+                
             </div>
         </div>
     </div>
@@ -114,17 +132,38 @@
 
         function loadVideo(videoSource) {
             const imageElement = document.getElementById("trafficImage");
+            const objectCountElement = document.getElementById("objectCount");
+            const totalObjectsElement = document.getElementById("totalObjects")
 
-            // Set src untuk video feed, akan otomatis menampilkan stream gambar
+            // Set src untuk video feed
             imageElement.src = `/video_feed?video_url=${encodeURIComponent(videoSource)}`;
 
             // Menampilkan modal
             const modal = new bootstrap.Modal(document.getElementById("infoModal"));
             modal.show();
+
+            // Update jumlah objek setiap 2 detik
+            setInterval(async () => {
+                const response = await fetch(`/object_count?video_url=${encodeURIComponent(videoSource)}`);
+                const objectCounts = await response.json();
+
+                // Tampilkan jumlah objek di modal
+                if (!objectCounts.error) {
+                    // menghitung total keseluruhan objek setiap kelas
+                    const totalObjects = Object.values(objectCounts).reduce((sum, count) => sum + count, 0);
+
+                    objectCountElement.innerHTML = Object.entries(objectCounts)
+                        .map(([label, count]) => `<h6>${label}: ${count}</h6>`)
+                        .join("");
+                    totalObjectsElement.innerHTML = `<p>Total Kendaraan : ${totalObjects}</p>`
+                } else {
+                    objectCountElement.innerHTML = "<p>Tidak dapat mendeteksi objek</p>";
+                }
+            }, 2000);
         }
 
         document.getElementById("infoModal").addEventListener("hidden.bs.modal", () => {
-            const video = document.getElementById("trafficVideo");
+            const video = document.getElementById("trafficImage");
 
             // Hentikan video dan reset
             if (video) {
