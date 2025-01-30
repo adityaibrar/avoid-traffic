@@ -12,10 +12,33 @@ locations = {
     "pasar": {"name": "Pasar", "lat": -7.915016, "lng": 113.827289, "videoSource": "https://video.pasar.com/stream"},
     "mts_2": {"name": "MTS 2", "lat": -7.915497, "lng": 113.816206, "videoSource": "https://video.mts2.com/stream"},
     "SD": {"name": "SD Dabasah", "lat": -7.913832, "lng": 113.820898, "videoSource": "https://video.sd.com/stream"},
-    "SMP_1": {"name": "SMPN 1 Bondowoso", "lat": -7.912070, "lng": 113.822498, "videoSource": "https://video.smp1.com/stream"},
+    "SMP_1": {"name": "SMPN 1 Bondowoso", "lat": -7.912070, "lng": 113.822498, "videoSource": "https://cctvjss.jogjakota.go.id/malioboro/Malioboro_21_Utara_Inna_Malioboro.stream/chunklist_w552182256.m3u8"},
     "SDK": {"name": "SDK", "lat": -7.917106, "lng": 113.822214, "videoSource": "https://video.sdk.com/stream"},
 }
 
+def get_vehicle_count(video_url):
+    """Mendapatkan jumlah kendaraan dari video stream menggunakan YOLO"""
+    cap = cv2.VideoCapture(video_url)
+    if not cap.isOpened():
+        return None
+    
+    ret, frame = cap.read()
+    if not ret:
+        cap.release()
+        return None
+    
+    results = model(frame)
+    vehicle_classes = {'car', 'motorcycle', 'bus', 'truck'}
+    counts = {cls: 0 for cls in vehicle_classes}
+    
+    for result in results:
+        for box in result.boxes:
+            label = model.names[int(box.cls[0])]
+            if label in vehicle_classes:
+                counts[label] += 1
+    
+    cap.release()
+    return sum(counts.values())
 
 def video_stream(video_url):
     cap = cv2.VideoCapture(video_url)
@@ -102,26 +125,44 @@ def calculate_route():
     if start_location == end_location:
         return jsonify({"error": "Start and end locations cannot be the same"}), 400
 
-    # Tentukan waypoints berdasarkan kondisi
-    waypoints = [] # Jalan alternatif
-    pointMarker = [] # Koordinat Marker 
+    # Otomatis deteksi kemacetan untuk rute pasar -> SMP_1
+    if start == "pasar" and end == "SMP_1":
+        video_url = end_location["videoSource"]
+        vehicle_count = get_vehicle_count(video_url)
+        
+        if vehicle_count is None:
+            return jsonify({"error": "Gagal memeriksa kepadatan lalu lintas"}), 500
+            
+        avoid_traffic = vehicle_count > 1  # Ambang batas 10 kendaraan
+
+    waypoints = []
+    pointMarker = []
+    
+    # Logika penentuan rute
     if start == "pasar" and end == "mts_2" and avoid_traffic:
         waypoint1 = {"lat": -7.914000, "lng": 113.820000, "videoSource": "https://extstream.hk-opt2.com/LiveApp/streams/710404214066673275657182.m3u8"}
         waypoints.append(waypoint1)
     elif start == "pasar" and end == "SMP_1" and avoid_traffic:
-        waypoint2 = {"lat" :-7.915000, "lng" :113.820000}
-        # pointMarker1 = {"lat": -7.913432, "lng": 113.823489, "videoSource": "https://extstream.hk-opt2.com/LiveApp/streams/956464037412277558025165.m3u8"}
-        # pointMarker1 = {"lat": -7.913432, "lng": 113.823489, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/564510132783646943412082.m3u8"}
-        pointMarker1 = {"lat": -7.913432, "lng": 113.823489, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/435572404308262635105603.m3u8"}
+        # waypoint2 = {"lat": -7.915000, "lng": 113.820000}
+        # -7.912589, 113.816900
+        waypoint2 = {"lat": -7.912589, "lng": 113.816900}
+        pointMarker1 = {"lat": -7.913432, "lng": 113.823489, "videoSource": "https://cctvjss.jogjakota.go.id/malioboro/Malioboro_21_Utara_Inna_Malioboro.stream/chunklist_w552182256.m3u8"}
         waypoints.append(waypoint2)
         pointMarker.append(pointMarker1)
 
-    # Return rute dan waypoints
     response = {
         "start": start_location,
         "end": end_location,
         "waypoints": waypoints,
-        "point_marker": pointMarker
+        "point_marker": pointMarker,
+        "origin": {  # Tambahkan koordinat asli
+            "lat": start_location["lat"],
+            "lng": start_location["lng"]
+        },
+        "destination": {  # Tambahkan koordinat tujuan
+            "lat": end_location["lat"],
+            "lng": end_location["lng"]
+        }
     }
     return jsonify(response)
 
