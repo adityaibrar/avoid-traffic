@@ -79,6 +79,30 @@ footer {
     opacity: 0.9;
 }
 
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    border-radius: 8px;
+}
+
+.loading-overlay .spinner-border {
+    width: 3rem;
+    height: 3rem;
+    color: #007bff;
+}
+
+.loading-overlay.hidden {
+    display: none;
+}
+
 .fa-envelope {
     color: #f0f6fc; /* Warna email */
 }

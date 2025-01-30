@@ -44,9 +44,20 @@ function loadVideo(videoSource) {
   const imageElement = document.getElementById("trafficImage");
   const objectCountElement = document.getElementById("objectCount");
   const totalObjectsElement = document.getElementById("total");
+  const loader = document.getElementById("videoLoading");
+
+  // Tampilkan loading
+  loader.classList.remove("hidden");
+  imageElement.style.display = "none";
 
   // Set src untuk video feed
   imageElement.src = `/video_feed?video_url=${encodeURIComponent(videoSource)}`;
+
+  // Event listener untuk mengetahui kapan video selesai dimuat
+  imageElement.onload = () => {
+    loader.classList.add("hidden");
+    imageElement.style.display = "block";
+  };
 
   // Menampilkan modal
   const modal = new bootstrap.Modal(document.getElementById("infoModal"));
@@ -61,12 +72,10 @@ function loadVideo(videoSource) {
 
     // Tampilkan jumlah objek di modal
     if (!objectCounts.error) {
-      // menghitung total keseluruhan objek setiap kelas
       const totalObjects = Object.values(objectCounts).reduce(
         (sum, count) => sum + count,
         0
       );
-
       objectCountElement.innerHTML = Object.entries(objectCounts)
         .map(([label, count]) => `<h6>${label}: ${count}</h6>`)
         .join("");
