@@ -46,6 +46,8 @@ def video_stream(video_url):
         print("Error: Tidak dapat membuka video stream.")
         return
 
+    vehicle_classes = {'car', 'motorcycle', 'bus', 'truck'}  # Hanya mendeteksi kendaraan
+
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -54,34 +56,31 @@ def video_stream(video_url):
         # Deteksi objek dengan YOLO
         results = model(frame)
 
-        # Dictionary untuk menyimpan jumlah objek per label
-        object_counts = {}
-
-        # Gambar bounding box hasil deteksi
+        # Gambar bounding box hanya untuk kendaraan
         for result in results:
             for box in result.boxes:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                label = result.names[int(box.cls[0])]
-                confidence = float(box.conf[0])
+                class_id = int(box.cls[0])
+                label = model.names[class_id]  # Ambil label dari model
 
-                # Tambahkan jumlah label
-                object_counts[label] = object_counts.get(label, 0) + 1
+                if label in vehicle_classes:  # Hanya proses kendaraan
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    confidence = float(box.conf[0])
 
-                # Gambar kotak deteksi
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(frame, f"{label} {confidence:.2f}", (x1, y1 - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    # Gambar kotak deteksi
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(frame, f"{label} {confidence:.2f}", (x1, y1 - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
         # Encode frame ke format JPEG
         _, buffer = cv2.imencode('.jpg', frame)
         frame = buffer.tobytes()
 
-        # Menggabungkan JSON (jumlah objek) dan frame
+        # Kirim frame ke client
         yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'
-               b'Content-Type: application/json\r\n\r\n' + str(object_counts).encode() + b'\r\n')
+               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
     cap.release()
+
 
 @app.route("/object_count")
 def object_count():
@@ -98,12 +97,17 @@ def object_count():
     # Deteksi objek dengan YOLO
     results = model(frame)
     
-    # Hitung jumlah objek per label
-    object_counts = {}
+    # Filter kelas kendaraan yang ingin dihitung
+    vehicle_classes = {'car', 'motorcycle', 'bus', 'truck'}
+    object_counts = {cls: 0 for cls in vehicle_classes}  # Inisialisasi semua kendaraan dengan 0
+
     for result in results:
         for box in result.boxes:
-            label = result.names[int(box.cls[0])]
-            object_counts[label] = object_counts.get(label, 0) + 1
+            class_id = int(box.cls[0])
+            label = model.names[class_id]  # Menggunakan class names dari model
+            
+            if label in vehicle_classes:
+                object_counts[label] += 1
 
     cap.release()
     
