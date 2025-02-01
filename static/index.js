@@ -169,6 +169,7 @@ async function calculateRoute() {
             wp.videoSource
           );
         });
+        moveToMap();
       } else {
         alert("Could not calculate route: " + status);
       }
@@ -190,4 +191,14 @@ async function calculateRoute() {
   } finally {
     loadingModal.hide();
   }
+}
+
+function moveToMap() {
+  var scroll = document.getElementById("mapsButtonContainer");
+  scroll.scrollIntoView();
+}
+
+function moveToHeader() {
+  var scroll = document.getElementById("locationData");
+  scroll.scrollIntoView();
 }

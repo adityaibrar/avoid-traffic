@@ -47,14 +47,14 @@ body {
     letter-spacing: 0.5px;
 }
 
-.my-bg-gradient{
+.my-bg-gradient {
     background: var(--gradient);
     border: none;
     padding: 12px 24px;
     border-radius: 8px;
 }
 
-.btn-close-white{
+.btn-close-white {
     filter: invert(1);
 }
 
@@ -73,6 +73,31 @@ body {
     padding: 4px 12px;
     border-radius: 20px;
     font-size: 0.9em;
+}
+
+.floating_btn {
+    width: 40px;
+    height: 40px;
+    background: var(--gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    border-radius: 50%;
+    color: #ffffff;
+    font-size: 20px;
+    box-shadow: 0px 0px 10px rgba(255, 255, 255, 0.25);
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    transition: backround 0.25s;
+    outline: black;
+    border: none;
+    cursor: pointer;
+}
+
+.floating_btn:active {
+    background: #0c836b;
 }
 
 footer {
@@ -115,17 +140,21 @@ footer {
 }
 
 .fa-envelope {
-    color: #f0f6fc; /* Warna email */
+    color: #f0f6fc;
+    /* Warna email */
 }
 
 .fa-github {
-    color: #f0f6fc; /* Warna GitHub */
+    color: #f0f6fc;
+    /* Warna GitHub */
 }
 
 .fa-linkedin {
-    color: #f0f6fc; /* Warna LinkedIn */
+    color: #f0f6fc;
+    /* Warna LinkedIn */
 }
 
 .fa-instagram {
-    color: #f0f6fc; /* Warna Instagram */
+    color: #f0f6fc;
+    /* Warna Instagram */
 }
