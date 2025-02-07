@@ -6,6 +6,10 @@ import cv2
 from apscheduler.schedulers.background import BackgroundScheduler
 from threading import Lock
 import atexit
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 # Konfigurasi MySQL
 DB_CONFIG = {
@@ -267,7 +271,8 @@ def calculate_route():
 
 @app.route("/")
 def index():
-    return render_template('index.html', locations= locations)  # File HTML frontend
+    apiKey = os.getenv("GMAPS_API_KEY")
+    return render_template('index.html', locations= locations, apiKey= apiKey)  # File HTML frontend
 
 @app.route("/video_feed")
 def video_feed():
