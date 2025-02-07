@@ -84,6 +84,59 @@ function loadVideo(videoSource) {
       objectCountElement.innerHTML = "<p>Tidak dapat mendeteksi objek</p>";
     }
   }, 2000);
+
+  const historicalContainer = document.getElementById("historicalData");
+  historicalContainer.innerHTML = `
+        <div class="text-center loading-historical">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2 mb-0">Memuat data historis...</p>
+        </div>`;
+
+  fetch(`/historical_averages?video_url=${encodeURIComponent(videoSource)}`)
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.length === 0) {
+        historicalContainer.innerHTML =
+          '<p class="text-muted text-center">Belum ada data historis</p>';
+        return;
+      }
+
+      historicalContainer.innerHTML = `
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Waktu</th>
+                                <th>Mobil</th>
+                                <th>Motor</th>
+                                <th>Bus</th>
+                                <th>Truk</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data
+                              .map(
+                                (entry) => `
+                                <tr>
+                                    <td>${entry.timestamp}</td>
+                                    <td>${entry.car}</td>
+                                    <td>${entry.motorcycle}</td>
+                                    <td>${entry.bus}</td>
+                                    <td>${entry.truck}</td>
+                                    <td class="fw-bold">${entry.total}</td>
+                                </tr>
+                            `
+                              )
+                              .join("")}
+                        </tbody>
+                    </table>
+                </div>`;
+    })
+    .catch((error) => {
+      historicalContainer.innerHTML =
+        '<p class="text-danger text-center">Gagal memuat data historis</p>';
+    });
 }
 
 document.getElementById("infoModal").addEventListener("hidden.bs.modal", () => {

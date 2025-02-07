@@ -115,6 +115,32 @@ footer {
     opacity: 0.9;
 }
 
+.historical-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.loading-historical {
+    padding: 20px;
+    color: #666;
+}
+
+.historical-entry {
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+}
+
+.historical-entry:last-child {
+    border-bottom: none;
+}
+
+.table-sm th, .table-sm td {
+    padding: 0.4rem;
+    font-size: 0.9em;
+}
+
 .loading-overlay {
     position: absolute;
     top: 0;

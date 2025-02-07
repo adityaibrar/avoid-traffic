@@ -1,7 +1,24 @@
+import pymysql
+from flask import Flask, render_template, request, Response, jsonify
+from flask_cors import CORS
 from ultralytics import YOLO
 import cv2
-from flask import Flask, render_template,request, Response, jsonify
-from flask_cors import CORS
+from apscheduler.schedulers.background import BackgroundScheduler
+from threading import Lock
+import atexit
+
+# Konfigurasi MySQL
+DB_CONFIG = {
+    "host": "127.0.0.1",  # Gunakan IP daripada 'localhost' untuk menghindari socket issues
+    "user": "root",
+    "password": "",
+    "database": "traffic_monitoring",
+    "cursorclass": pymysql.cursors.DictCursor
+}
+
+# Fungsi untuk mendapatkan koneksi database
+def get_db_connection():
+    return pymysql.connect(**DB_CONFIG)
 
 app = Flask(__name__)
 CORS(app)  # Mengizinkan akses dari domain lain
@@ -15,6 +32,82 @@ locations = {
     "SMP_1": {"name": "SMPN 1 Bondowoso", "lat": -7.912070, "lng": 113.822498, "videoSource": "https://cctvjss.jogjakota.go.id/malioboro/Malioboro_21_Utara_Inna_Malioboro.stream/chunklist_w552182256.m3u8"},
     "SDK": {"name": "SDK", "lat": -7.917106, "lng": 113.822214, "videoSource": "https://video.sdk.com/stream"},
 }
+
+# Data akumulasi dan lock
+accumulated_data = {}
+data_lock = Lock()
+
+# Scheduler untuk menyimpan data
+scheduler = BackgroundScheduler()
+scheduler.start()
+
+def save_averages():
+    with data_lock:
+        global accumulated_data
+        current_data = accumulated_data
+        accumulated_data = {}
+
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+
+            for video_url, counts in current_data.items():
+                avg_car = sum(counts['car']) / len(counts['car']) if counts['car'] else 0
+                avg_motorcycle = sum(counts['motorcycle']) / len(counts['motorcycle']) if counts['motorcycle'] else 0
+                avg_bus = sum(counts['bus']) / len(counts['bus']) if counts['bus'] else 0
+                avg_truck = sum(counts['truck']) / len(counts['truck']) if counts['truck'] else 0
+                total_avg = (sum(counts['car']) + sum(counts['motorcycle']) +
+                            sum(counts['bus']) + sum(counts['truck'])) / len(counts['car']) if counts['car'] else 0
+
+                # Simpan ke database
+                cur.execute("""
+                    INSERT INTO traffic_averages 
+                    (video_url, average_car, average_motorcycle, average_bus, average_truck, total_average, timestamp)
+                    VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                """, (video_url, avg_car, avg_motorcycle, avg_bus, avg_truck, total_avg))
+
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print("Error saving averages:", str(e))
+
+# Jadwalkan penyimpanan setiap menit
+scheduler.add_job(save_averages, 'interval', seconds=60)
+
+@app.route("/historical_averages")
+def get_historical_averages():
+    video_url = request.args.get("video_url")
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT timestamp, average_car, average_motorcycle, average_bus, average_truck, total_average 
+            FROM traffic_averages 
+            WHERE video_url = %s 
+            ORDER BY timestamp DESC 
+            LIMIT 10
+        """, (video_url,))
+        result = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+        averages = [{
+            "timestamp": row["timestamp"].strftime("%Y-%m-%d %H:%M"),
+            "car": round(row["average_car"], 1),
+            "motorcycle": round(row["average_motorcycle"], 1),
+            "bus": round(row["average_bus"], 1),
+            "truck": round(row["average_truck"], 1),
+            "total": round(row["total_average"], 1)
+        } for row in result]
+
+        return jsonify(averages)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 def get_vehicle_count(video_url):
     """Mendapatkan jumlah kendaraan dari video stream menggunakan YOLO"""
@@ -86,7 +179,7 @@ def video_stream(video_url):
 def object_count():
     video_url = request.args.get("video_url")
     cap = cv2.VideoCapture(video_url)
-    
+
     if not cap.isOpened():
         return jsonify({"error": "Tidak dapat membuka video stream"}), 400
 
@@ -94,24 +187,26 @@ def object_count():
     if not ret:
         return jsonify({"error": "Tidak dapat membaca frame video"}), 400
 
-    # Deteksi objek dengan YOLO
     results = model(frame)
-    
-    # Filter kelas kendaraan yang ingin dihitung
     vehicle_classes = {'car', 'motorcycle', 'bus', 'truck'}
-    object_counts = {cls: 0 for cls in vehicle_classes}  # Inisialisasi semua kendaraan dengan 0
+    counts = {cls: 0 for cls in vehicle_classes}
 
     for result in results:
         for box in result.boxes:
-            class_id = int(box.cls[0])
-            label = model.names[class_id]  # Menggunakan class names dari model
-            
+            label = model.names[int(box.cls[0])]
             if label in vehicle_classes:
-                object_counts[label] += 1
+                counts[label] += 1
+
+    # Akumulasi data
+    with data_lock:
+        if video_url not in accumulated_data:
+            accumulated_data[video_url] = {cls: [] for cls in vehicle_classes}
+
+        for cls in vehicle_classes:
+            accumulated_data[video_url][cls].append(counts[cls])
 
     cap.release()
-    
-    return jsonify(object_counts)
+    return jsonify(counts)
 
 @app.route("/calculate_route", methods=["POST"])
 def calculate_route():
@@ -181,6 +276,9 @@ def video_feed():
         return "Error: URL tidak diberikan", 400
 
     return Response(video_stream(video_url), mimetype="multipart/x-mixed-replace; boundary=frame")
+
+# Shutdown scheduler saat aplikasi dihentikan
+atexit.register(lambda: scheduler.shutdown())
 
 def main():
     # app.run(host="0.0.0.0", port=5000, debug=True)  # Jalankan server Flask
