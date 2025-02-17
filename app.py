@@ -31,9 +31,9 @@ model = YOLO("yolov8n.pt")
 
 locations = {
     "pasar": {"name": "Pasar", "lat": -7.915016, "lng": 113.827289, "videoSource": "https://video.pasar.com/stream"},
+    "SMP_1": {"name": "SMPN 1 Bondowoso", "lat": -7.912070, "lng": 113.822498, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/435572404308262635105603.m3u8"},
     "mts_2": {"name": "MTS 2", "lat": -7.915497, "lng": 113.816206, "videoSource": "https://video.mts2.com/stream"},
     "SD": {"name": "SD Dabasah", "lat": -7.913832, "lng": 113.820898, "videoSource": "https://video.sd.com/stream"},
-    "SMP_1": {"name": "SMPN 1 Bondowoso", "lat": -7.912070, "lng": 113.822498, "videoSource": "https://cctvjss.jogjakota.go.id/malioboro/Malioboro_21_Utara_Inna_Malioboro.stream/chunklist_w552182256.m3u8"},
     "SDK": {"name": "SDK", "lat": -7.917106, "lng": 113.822214, "videoSource": "https://video.sdk.com/stream"},
 }
 
@@ -56,12 +56,12 @@ def save_averages():
             cur = conn.cursor()
 
             for video_url, counts in current_data.items():
-                avg_car = sum(counts['car']) / len(counts['car']) if counts['car'] else 0
-                avg_motorcycle = sum(counts['motorcycle']) / len(counts['motorcycle']) if counts['motorcycle'] else 0
-                avg_bus = sum(counts['bus']) / len(counts['bus']) if counts['bus'] else 0
-                avg_truck = sum(counts['truck']) / len(counts['truck']) if counts['truck'] else 0
-                total_avg = (sum(counts['car']) + sum(counts['motorcycle']) +
-                            sum(counts['bus']) + sum(counts['truck'])) / len(counts['car']) if counts['car'] else 0
+                avg_car = round(sum(counts['car']) / len(counts['car'])) if counts['car'] else 0
+                avg_motorcycle = round(sum(counts['motorcycle']) / len(counts['motorcycle'])) if counts['motorcycle'] else 0
+                avg_bus = round(sum(counts['bus']) / len(counts['bus'])) if counts['bus'] else 0
+                avg_truck = round(sum(counts['truck']) / len(counts['truck'])) if counts['truck'] else 0
+                total_avg = round((sum(counts['car']) + sum(counts['motorcycle']) +
+                            sum(counts['bus']) + sum(counts['truck']))) / len(counts['car']) if counts['car'] else 0
 
                 # Simpan ke database
                 cur.execute("""
@@ -77,7 +77,7 @@ def save_averages():
             print("Error saving averages:", str(e))
 
 # Jadwalkan penyimpanan setiap menit
-scheduler.add_job(save_averages, 'interval', seconds=60)
+scheduler.add_job(save_averages, 'interval', seconds=20)
 
 @app.route("/historical_averages")
 def get_historical_averages():
@@ -114,7 +114,41 @@ def get_historical_averages():
         return jsonify({"error": str(e)}), 500
 
 def get_vehicle_count(video_url):
-    """Mendapatkan jumlah kendaraan dari video stream menggunakan YOLO"""
+    """Mendapatkan total rata-rata kendaraan dari database dalam 30 menit terakhir"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Cari data dalam 30 menit terakhir
+        cur.execute("""
+            SELECT total_average 
+            FROM traffic_averages 
+            WHERE video_url = %s 
+            AND timestamp >= NOW() - INTERVAL 5 MINUTE 
+            ORDER BY timestamp DESC 
+            LIMIT 1;
+        """, (video_url,))
+            # AND timestamp >= NOW() - INTERVAL 1 MINUTE 
+        result = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if result is not None:
+            print(f"DEBUG: Data ditemukan, total_average = {result['total_average']}")
+            return result['total_average']
+        else:
+            # Jika tidak ada data, lakukan deteksi real-time dan simpan
+            print(f"DEBUG: Data kosong anjay")
+            # return None
+            return perform_realtime_detection(video_url)
+
+    except Exception as e:
+        print("Error in get_vehicle_count:", str(e))
+        return None
+
+def perform_realtime_detection(video_url):
+    print(f"Debug: {video_url}")
+    """Deteksi kendaraan real-time dan simpan ke database"""
     cap = cv2.VideoCapture(video_url)
     if not cap.isOpened():
         return None
@@ -133,9 +167,25 @@ def get_vehicle_count(video_url):
             label = model.names[int(box.cls[0])]
             if label in vehicle_classes:
                 counts[label] += 1
-    
+    total = round(sum(counts.values()))
     cap.release()
-    return sum(counts.values())
+
+    # Simpan hasil deteksi langsung ke database
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO traffic_averages 
+            (video_url, average_car, average_motorcycle, average_bus, average_truck, total_average, timestamp)
+            VALUES (%s, %s, %s, %s, %s, %s, NOW())
+        """, (video_url, counts['car'], counts['motorcycle'], counts['bus'], counts['truck'], total))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return total
+    except Exception as e:
+        print("Error saving real-time data:", str(e))
+        return None
 
 def video_stream(video_url):
     cap = cv2.VideoCapture(video_url)
@@ -236,20 +286,21 @@ def calculate_route():
         if vehicle_count is None:
             return jsonify({"error": "Gagal memeriksa kepadatan lalu lintas"}), 500
             
-        avoid_traffic = vehicle_count > 1  # Ambang batas 10 kendaraan
+        avoid_traffic = vehicle_count > 10  # Ambang batas 10 kendaraan
+        print(f"total kendaraan yang ada di database adalah {vehicle_count}")
 
     waypoints = []
     pointMarker = []
     
     # Logika penentuan rute
     if start == "pasar" and end == "mts_2" and avoid_traffic:
-        waypoint1 = {"lat": -7.914000, "lng": 113.820000, "videoSource": "https://extstream.hk-opt2.com/LiveApp/streams/710404214066673275657182.m3u8"}
+        waypoint1 = {"lat": -7.914000, "lng": 113.820000, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/564510132783646943412082.m3u8"}
         waypoints.append(waypoint1)
     elif start == "pasar" and end == "SMP_1" and avoid_traffic:
         # waypoint2 = {"lat": -7.915000, "lng": 113.820000}
         # -7.912589, 113.816900
         waypoint2 = {"lat": -7.912589, "lng": 113.816900}
-        pointMarker1 = {"lat": -7.913432, "lng": 113.823489, "videoSource": "https://cctvjss.jogjakota.go.id/malioboro/Malioboro_21_Utara_Inna_Malioboro.stream/chunklist_w552182256.m3u8"}
+        pointMarker1 = {"lat": -7.913432, "lng": 113.823489, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/435572404308262635105603.m3u8"}
         waypoints.append(waypoint2)
         pointMarker.append(pointMarker1)
 
@@ -265,7 +316,8 @@ def calculate_route():
         "destination": {  # Tambahkan koordinat tujuan
             "lat": end_location["lat"],
             "lng": end_location["lng"]
-        }
+        },
+        "vehicle": vehicle_count
     }
     return jsonify(response)
 

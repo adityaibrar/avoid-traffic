@@ -9,7 +9,7 @@ const locationData = { locations, toJson };
 // Initialize the map
 function initMap() {
   map = new google.maps.Map(document.getElementById("map"), {
-    center: { lat: -7.915016, lng: 113.827289 }, // Default location
+    center: { lat: -7.79558, lng: 110.36949 }, // Default location
     zoom: 14,
   });
 
@@ -160,6 +160,7 @@ document.getElementById("infoModal").addEventListener("hidden.bs.modal", () => {
 
 // Update fungsi calculateRoute untuk mencegah auto refresh
 async function calculateRoute() {
+  // disableButtonFor1Minute();
   const locationData = JSON.parse(
     document.getElementById("locationData").dataset.locations
   );
@@ -173,10 +174,7 @@ async function calculateRoute() {
     return;
   }
 
-  const loadingModal = new bootstrap.Modal(
-    document.getElementById("loadingModal")
-  );
-  loadingModal.show();
+  showFunc();
 
   try {
     if (!start || !end) {
@@ -184,10 +182,12 @@ async function calculateRoute() {
       return;
     }
 
+    // Reset directions renderer dan marker
     directionsRenderer.setMap(null);
     directionsRenderer = new google.maps.DirectionsRenderer({ map });
     clearWaypointsMarkers();
 
+    // Panggil endpoint untuk menghitung rute
     const response = await fetch("/calculate_route", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -201,6 +201,7 @@ async function calculateRoute() {
     }
 
     const routeData = await response.json();
+
     const request = {
       origin: new google.maps.LatLng(routeData.start.lat, routeData.start.lng),
       destination: new google.maps.LatLng(routeData.end.lat, routeData.end.lng),
@@ -225,6 +226,7 @@ async function calculateRoute() {
         moveToMap();
       } else {
         alert("Could not calculate route: " + status);
+        hideFunc();
       }
     });
 
@@ -242,7 +244,8 @@ async function calculateRoute() {
   } catch (error) {
     alert(error.message);
   } finally {
-    loadingModal.hide();
+    hideFunc();
+    setTimeout(rebuildModal, 100);
   }
 }
 
@@ -254,4 +257,73 @@ function moveToMap() {
 function moveToHeader() {
   var scroll = document.getElementById("locationData");
   scroll.scrollIntoView();
+}
+
+function showFunc() {
+  const loadingModalElement = document.getElementById("loadingModal");
+  if (loadingModalElement) {
+    const loadingModal = new bootstrap.Modal(loadingModalElement, {
+      backdrop: "static",
+      keyboard: false,
+    });
+    loadingModal.show();
+  } else {
+    console.log("Modal tidak ditemukan!");
+  }
+}
+
+// Fungsi untuk menutup modal
+function hideFunc() {
+  console.log("Menutup modal...");
+
+  const loadingModalElement = document.getElementById("loadingModal");
+
+  if (loadingModalElement) {
+    const loadingModal = bootstrap.Modal.getInstance(loadingModalElement);
+
+    if (loadingModal) {
+      loadingModal.hide(); // Menutup modal
+      loadingModal.dispose(); // Menghapus instance modal dari memori
+      console.log("Modal berhasil ditutup dan di-dispose.");
+    } else {
+      console.log("Instance modal tidak ditemukan, coba hapus manual.");
+    }
+
+    // Hapus modal dari DOM setelah animasi selesai
+    setTimeout(() => {
+      loadingModalElement.remove();
+      console.log("Modal telah dihapus dari DOM.");
+    }, 100);
+  } else {
+    console.log("Element modal tidak ditemukan!");
+  }
+
+  // Hapus backdrop jika masih ada
+  document
+    .querySelectorAll(".modal-backdrop")
+    .forEach((backdrop) => backdrop.remove());
+
+  // Pastikan body tidak terkunci
+  document.body.classList.remove("modal-open");
+  document.body.style.overflow = "auto";
+}
+
+function rebuildModal() {
+  const modalHTML = `
+  <div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content border-0">
+              <div class="modal-body text-center py-5">
+                  <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+                      <span class="visually-hidden">Loading...</span>
+                  </div>
+                  <h5 class="mt-3 mb-0">Analyzing Traffic Conditions...</h5>
+                  <p class="text-muted mt-2">This may take a few seconds</p>
+              </div>
+          </div>
+      </div>
+  </div>`;
+
+  document.body.insertAdjacentHTML("beforeend", modalHTML);
+  console.log("Modal berhasil dibangun ulang.");
 }
