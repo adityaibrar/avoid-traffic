@@ -30,11 +30,12 @@ CORS(app)  # Mengizinkan akses dari domain lain
 model = YOLO("yolov8n.pt")
 
 locations = {
-    "pasar": {"name": "Pasar", "lat": -7.915016, "lng": 113.827289, "videoSource": "https://video.pasar.com/stream"},
-    "SMP_1": {"name": "SMPN 1 Bondowoso", "lat": -7.912070, "lng": 113.822498, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/435572404308262635105603.m3u8"},
-    "mts_2": {"name": "MTS 2", "lat": -7.915497, "lng": 113.816206, "videoSource": "https://video.mts2.com/stream"},
-    "SD": {"name": "SD Dabasah", "lat": -7.913832, "lng": 113.820898, "videoSource": "https://video.sd.com/stream"},
-    "SDK": {"name": "SDK", "lat": -7.917106, "lng": 113.822214, "videoSource": "https://video.sdk.com/stream"},
+    "Jl. Veteran": {"name": "Jl. Veteran", "lat": -7.95918, "lng": 112.62056, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/001034626224094756998994.m3u8"},
+    "Jl. Sumbersari": {"name": "Jl. Sumbersari", "lat": -7.952562, "lng": 112.609506, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/001034626224094756998994.m3u8"},
+    "Jl. Gajayana Dari Utara": {"name": "Jl. Gajayana Dari Utara", "lat": -7.951387, "lng": 112.609012, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/385150101635081489243344.m3u8"},
+    "Jl. Gajayana Dari Selatan": {"name": "Jl. Gajayana Dari Selatan", "lat": -7.943289, "lng": 112.610238, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/455597782591873967365987.m3u8"},
+    "Jl. Borobudur": {"name": "Jl. Borobudur", "lat": -7.938960, "lng": 112.633439, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/807179387709306202506877.m3u8"},
+    "Jl. Soekarno Hatta UB": {"name": "Jl. Soekarno Hatta UB", "lat": -7.949721, "lng": 112.615483, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/435572404308262635105603.m3u8"},
 }
 
 # Data akumulasi dan lock
@@ -278,47 +279,75 @@ def calculate_route():
     if start_location == end_location:
         return jsonify({"error": "Start and end locations cannot be the same"}), 400
 
-    # Otomatis deteksi kemacetan untuk rute pasar -> SMP_1
-    if start == "pasar" and end == "SMP_1":
-        video_url = end_location["videoSource"]
-        vehicle_count = get_vehicle_count(video_url)
-        
-        if vehicle_count is None:
-            return jsonify({"error": "Gagal memeriksa kepadatan lalu lintas"}), 500
-            
-        avoid_traffic = vehicle_count > 10  # Ambang batas 10 kendaraan
-        print(f"total kendaraan yang ada di database adalah {vehicle_count}")
+    # Definisikan logika rute dalam dictionary
+    route_logic = {
+        ("Jl. Gajayana Dari Utara", "Jl. Gajayana Dari Selatan"): {
+            "threshold": 10,
+            "waypoints": [{"lat": -7.945689, "lng": 112.607892}],
+            "point_markers": [{"lat": -7.946302, "lng": 112.609128}]
+        },
+        ("Jl. Gajayana Dari Selatan", "Jl. Gajayana Dari Utara"): {
+            "threshold": 10,
+            "waypoints": [{"lat": -7.945612, "lng": 112.608075}],
+            "point_markers": [{"lat": -7.946302, "lng": 112.609128}]
+        },
+        ("Jl. Veteran", "Jl. Sumbersari"): {
+            "threshold": 10,
+            "waypoints": [{"lat": -7.959974, "lng": 112.615747}],
+            "point_markers": [{"lat": -7.956383, "lng": 112.613366}]
+        },
+        ("Jl. Borobudur", "Jl. Soekarno Hatta UB"): {
+            "threshold": 10,
+            "waypoints": [{"lat": -7.947825, "lng":  112.625181}],
+            "point_markers": [{"lat": -7.942905, "lng": 112.620851}]
+        },
+        ("Jl. Soekarno Hatta UB", "Jl. Borobudur"): {
+            "threshold": 10,
+            "waypoints": [{"lat": -7.947825, "lng":  112.625181}],
+            "point_markers": [{"lat": -7.942905, "lng": 112.620851}]
+        },
+    }
 
-    waypoints = []
-    pointMarker = []
-    
-    # Logika penentuan rute
-    if start == "pasar" and end == "mts_2" and avoid_traffic:
-        waypoint1 = {"lat": -7.914000, "lng": 113.820000, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/564510132783646943412082.m3u8"}
-        waypoints.append(waypoint1)
-    elif start == "pasar" and end == "SMP_1" and avoid_traffic:
-        # waypoint2 = {"lat": -7.915000, "lng": 113.820000}
-        # -7.912589, 113.816900
-        waypoint2 = {"lat": -7.912589, "lng": 113.816900}
-        pointMarker1 = {"lat": -7.913432, "lng": 113.823489, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/435572404308262635105603.m3u8"}
-        waypoints.append(waypoint2)
-        pointMarker.append(pointMarker1)
+    # Cek apakah rute ada dalam logika
+    route_key = (start, end)
+    if route_key not in route_logic:
+        return jsonify({"error": "Mohon maaf rute tidak tersedia"}), 500
 
+    # Ambil logika rute
+    logic = route_logic[route_key]
+    video_url = end_location["videoSource"]
+    vehicle_count = get_vehicle_count(video_url)
+
+    if vehicle_count is None:
+        return jsonify({"error": "Gagal memeriksa kepadatan lalu lintas"}), 500
+
+    # Tentukan apakah perlu menghindari kemacetan
+    avoid_traffic = vehicle_count > logic["threshold"]
+    print(f"Total kendaraan yang ada di database adalah {vehicle_count}")
+
+    # Persiapkan waypoints dan point markers
+    waypoints = logic["waypoints"] if avoid_traffic else []
+    point_markers = [
+        {**marker, "videoSource": video_url} for marker in logic["point_markers"]
+    ] if avoid_traffic else []
+
+    # Siapkan respons
     response = {
         "start": start_location,
         "end": end_location,
         "waypoints": waypoints,
-        "point_marker": pointMarker,
-        "origin": {  # Tambahkan koordinat asli
+        "point_marker": point_markers,
+        "origin": {
             "lat": start_location["lat"],
             "lng": start_location["lng"]
         },
-        "destination": {  # Tambahkan koordinat tujuan
+        "destination": {
             "lat": end_location["lat"],
             "lng": end_location["lng"]
         },
         "vehicle": vehicle_count
     }
+
     return jsonify(response)
 
 @app.route("/")

@@ -9,7 +9,7 @@ const locationData = { locations, toJson };
 // Initialize the map
 function initMap() {
   map = new google.maps.Map(document.getElementById("map"), {
-    center: { lat: -7.79558, lng: 110.36949 }, // Default location
+    center: { lat: -7.970817, lng: 112.632809 }, // Default location
     zoom: 14,
   });
 
