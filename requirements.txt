@@ -5,6 +5,7 @@ ultralytics
 PyMySQL
 APScheduler
 python-dotenv
+cryptography
 
 # version
 # ultralytics=8.3.63

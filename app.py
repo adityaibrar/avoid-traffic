@@ -13,10 +13,11 @@ load_dotenv()
 
 # Konfigurasi MySQL
 DB_CONFIG = {
-    "host": "127.0.0.1",  # Gunakan IP daripada 'localhost' untuk menghindari socket issues
-    "user": "root",
-    "password": "",
-    "database": "traffic_monitoring",
+    "host": os.getenv("DB_HOST"),  # Mengambil nilai dari .env
+    "port": int(os.getenv("DB_PORT")),  # Konversi ke integer
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "database": os.getenv("DB_NAME"),
     "cursorclass": pymysql.cursors.DictCursor
 }
 
@@ -30,12 +31,12 @@ CORS(app)  # Mengizinkan akses dari domain lain
 model = YOLO("yolov8n.pt")
 
 locations = {
-    "Jl. Veteran": {"name": "Jl. Veteran", "lat": -7.95918, "lng": 112.62056, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/001034626224094756998994.m3u8"},
-    "Jl. Sumbersari": {"name": "Jl. Sumbersari", "lat": -7.952562, "lng": 112.609506, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/001034626224094756998994.m3u8"},
-    "Jl. Gajayana Dari Utara": {"name": "Jl. Gajayana Dari Utara", "lat": -7.951387, "lng": 112.609012, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/385150101635081489243344.m3u8"},
-    "Jl. Gajayana Dari Selatan": {"name": "Jl. Gajayana Dari Selatan", "lat": -7.943289, "lng": 112.610238, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/455597782591873967365987.m3u8"},
+    "Jl. Bandung": {"name": "Jl. Bandung", "lat": -7.960674, "lng": 112.622380, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/001034626224094756998994.m3u8"},
+    "Jl. Sumbersari": {"name": "Jl. Sumbersari", "lat": -7.952562, "lng": 112.609506, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/636589114401733445781917.m3u8"},
+    "Jl. Gajayana Selatan": {"name": "Jl. Gajayana Selatan", "lat": -7.951431, "lng": 112.608987, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/455597782591873967365987.m3u8"},
+    "Jl. MT Haryono Barat": {"name": "Jl. MT Haryono Barat", "lat": -7.935947, "lng": 112.605314, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/385150101635081489243344.m3u8"},
     "Jl. Borobudur": {"name": "Jl. Borobudur", "lat": -7.938960, "lng": 112.633439, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/807179387709306202506877.m3u8"},
-    "Jl. Soekarno Hatta UB": {"name": "Jl. Soekarno Hatta UB", "lat": -7.949721, "lng": 112.615483, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/435572404308262635105603.m3u8"},
+    "Jl. Soekarno Hatta UB": {"name": "Jl. Soekarno Hatta UB", "lat": -7.949721, "lng": 112.615483, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/490076087057536757601215.m3u8"},
 }
 
 # Data akumulasi dan lock
@@ -139,8 +140,6 @@ def get_vehicle_count(video_url):
             return result['total_average']
         else:
             # Jika tidak ada data, lakukan deteksi real-time dan simpan
-            print(f"DEBUG: Data kosong anjay")
-            # return None
             return perform_realtime_detection(video_url)
 
     except Exception as e:
@@ -281,28 +280,18 @@ def calculate_route():
 
     # Definisikan logika rute dalam dictionary
     route_logic = {
-        ("Jl. Gajayana Dari Utara", "Jl. Gajayana Dari Selatan"): {
-            "threshold": 10,
-            "waypoints": [{"lat": -7.945689, "lng": 112.607892}],
+        ("Jl. Gajayana Selatan", "Jl. MT Haryono Barat"): {
+            "threshold": 0,
+            "waypoints": [{"lat": -7.943472, "lng": 112.603881}],
             "point_markers": [{"lat": -7.946302, "lng": 112.609128}]
         },
-        ("Jl. Gajayana Dari Selatan", "Jl. Gajayana Dari Utara"): {
-            "threshold": 10,
-            "waypoints": [{"lat": -7.945612, "lng": 112.608075}],
-            "point_markers": [{"lat": -7.946302, "lng": 112.609128}]
-        },
-        ("Jl. Veteran", "Jl. Sumbersari"): {
-            "threshold": 10,
-            "waypoints": [{"lat": -7.959974, "lng": 112.615747}],
+        ("Jl. Bandung", "Jl. Sumbersari"): {
+            "threshold": 1,
+            "waypoints": [{"lat": -7.965025, "lng": 112.616374}],
             "point_markers": [{"lat": -7.956383, "lng": 112.613366}]
         },
         ("Jl. Borobudur", "Jl. Soekarno Hatta UB"): {
-            "threshold": 10,
-            "waypoints": [{"lat": -7.947825, "lng":  112.625181}],
-            "point_markers": [{"lat": -7.942905, "lng": 112.620851}]
-        },
-        ("Jl. Soekarno Hatta UB", "Jl. Borobudur"): {
-            "threshold": 10,
+            "threshold": 1,
             "waypoints": [{"lat": -7.947825, "lng":  112.625181}],
             "point_markers": [{"lat": -7.942905, "lng": 112.620851}]
         },
