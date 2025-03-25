@@ -28,7 +28,7 @@ def get_db_connection():
 app = Flask(__name__)
 CORS(app)  # Mengizinkan akses dari domain lain
 
-model = YOLO("yolov8n.pt")
+model = YOLO("models/best_100_4663.pt")
 
 locations = {
     "Jl. Bandung": {"name": "Jl. Bandung", "lat": -7.960674, "lng": 112.622380, "videoSource": "http://stream.cctv.malangkota.go.id/WebRTCApp/streams/001034626224094756998994.m3u8"},
@@ -152,24 +152,21 @@ def perform_realtime_detection(video_url):
     cap = cv2.VideoCapture(video_url)
     if not cap.isOpened():
         return None
-    
     ret, frame = cap.read()
     if not ret:
         cap.release()
         return None
-    
     results = model(frame)
     vehicle_classes = {'car', 'motorcycle', 'bus', 'truck'}
     counts = {cls: 0 for cls in vehicle_classes}
-    
     for result in results:
         for box in result.boxes:
             label = model.names[int(box.cls[0])]
-            if label in vehicle_classes:
+            confidence = float(box.conf[0])  # Ambil confidence score
+            if label in vehicle_classes and confidence >= 0.5:  # Filter confidence
                 counts[label] += 1
     total = round(sum(counts.values()))
     cap.release()
-
     # Simpan hasil deteksi langsung ke database
     try:
         conn = get_db_connection()
@@ -192,73 +189,57 @@ def video_stream(video_url):
     if not cap.isOpened():
         print("Error: Tidak dapat membuka video stream.")
         return
-
     vehicle_classes = {'car', 'motorcycle', 'bus', 'truck'}  # Hanya mendeteksi kendaraan
-
     while True:
         ret, frame = cap.read()
         if not ret:
             break
-
         # Deteksi objek dengan YOLO
         results = model(frame)
-
-        # Gambar bounding box hanya untuk kendaraan
+        # Gambar bounding box hanya untuk kendaraan dengan confidence >= 0.5
         for result in results:
             for box in result.boxes:
                 class_id = int(box.cls[0])
                 label = model.names[class_id]  # Ambil label dari model
-
-                if label in vehicle_classes:  # Hanya proses kendaraan
+                confidence = float(box.conf[0])  # Ambil confidence score
+                if label in vehicle_classes and confidence >= 0.5:  # Filter confidence
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    confidence = float(box.conf[0])
-
                     # Gambar kotak deteksi
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     cv2.putText(frame, f"{label} {confidence:.2f}", (x1, y1 - 10),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
         # Encode frame ke format JPEG
         _, buffer = cv2.imencode('.jpg', frame)
         frame = buffer.tobytes()
-
         # Kirim frame ke client
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-
     cap.release()
-
 
 @app.route("/object_count")
 def object_count():
     video_url = request.args.get("video_url")
     cap = cv2.VideoCapture(video_url)
-
     if not cap.isOpened():
         return jsonify({"error": "Tidak dapat membuka video stream"}), 400
-
     ret, frame = cap.read()
     if not ret:
         return jsonify({"error": "Tidak dapat membaca frame video"}), 400
-
     results = model(frame)
     vehicle_classes = {'car', 'motorcycle', 'bus', 'truck'}
     counts = {cls: 0 for cls in vehicle_classes}
-
     for result in results:
         for box in result.boxes:
             label = model.names[int(box.cls[0])]
-            if label in vehicle_classes:
+            confidence = float(box.conf[0])  # Ambil confidence score
+            if label in vehicle_classes and confidence >= 0.5:  # Filter confidence
                 counts[label] += 1
-
     # Akumulasi data
     with data_lock:
         if video_url not in accumulated_data:
             accumulated_data[video_url] = {cls: [] for cls in vehicle_classes}
-
         for cls in vehicle_classes:
             accumulated_data[video_url][cls].append(counts[cls])
-
     cap.release()
     return jsonify(counts)
 
@@ -341,8 +322,7 @@ def calculate_route():
 
 @app.route("/")
 def index():
-    apiKey = os.getenv("GMAPS_API_KEY")
-    return render_template('index.html', locations= locations, apiKey= apiKey)  # File HTML frontend
+    return render_template('index.html', locations= locations)  # File HTML frontend
 
 @app.route("/video_feed")
 def video_feed():
